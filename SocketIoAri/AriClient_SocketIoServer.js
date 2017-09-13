@@ -1,6 +1,6 @@
 #!/usr/bin/env nodejs
 
-//Author: FITi.vn
+//Author: phiphu@FITi.vn
 //This application is a Socket.io server running on Node.js.
 //HOW IT WORKS
 //First, an user logins via Browser
