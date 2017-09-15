@@ -1,0 +1,37 @@
+﻿div.onepas012017 { 
+  display: none;
+  border: 6px solid salmon; 
+  padding: 1em;
+  width: 400px;
+  text-align: center;
+  background: #fff;
+  position: fixed;
+  top:50%;
+  left:50%;
+  transform: translate(-50%,-50%);
+  -webkit-transform: translate(-50%,-50%)
+  
+}
+
+input.onepas012017, textarea.onepas012017 { 
+  margin: .8em auto;
+  font-family: inherit; 
+  text-transform: inherit; 
+  font-size: inherit;
+  display: block; 
+  width: 320px; 
+  padding: .4em;
+}
+textarea.onepas012017 { height: 80px; resize: none; }
+
+button.onepas012017 { 
+  width: 140px;
+  display: inline-block;
+  
+  background: teal;
+  color: #fff;
+  font-weight: 100;
+  font-size: 1.2em;
+  border: none;
+  height: 30px;
+}
