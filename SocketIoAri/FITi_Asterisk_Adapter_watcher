@@ -1,0 +1,15 @@
+#!/bin/bash
+
+DAEMON_PATH="/home/osboxes/Workspace/AriDemo/FITi_Asterisk_Adapter"
+DAEMON="FITi_Asterisk_Adapter_Clo_Prod.js"
+DAEMONOPTS=""
+
+while [ true ]; do
+    ps -ef | grep nodejs | grep FITi_Asterisk_Adapter | grep -v grep > /dev/null
+    if [ $? != 0 ]
+    then
+        cd $DAEMON_PATH
+        /usr/bin/nodejs $DAEMON > /dev/null 2>&1 &
+    fi
+	sleep 3
+done
