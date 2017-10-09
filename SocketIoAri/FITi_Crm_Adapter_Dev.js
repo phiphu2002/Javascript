@@ -1,7 +1,7 @@
 ﻿var socketIo203;
 
 $(document).ready(function () {
-    var SOCKETIO_SERVER = 'http://192.168.100.17:8090';
+    var SOCKETIO_SERVER = 'http://192.168.100.18:8090';
     var RECONECT_TIME = 1000;
     var text = $("a[href='/Account/ChangeSip']").text();//text = 'phu (2000)'
     var start = text.search('\\(');
@@ -9,67 +9,27 @@ $(document).ready(function () {
     var myExten = text.slice(start + 1, end);
     console.log(myExten);
     socketIo203 = io203(SOCKETIO_SERVER);
-    var myState = 'Down';//State of my SIP outbound channel, Down/Ringing/Up
-    var pingsWithoutState = 0;//Number of PINGs received without any Ringing STATE received, caller ON HOOK
-    var $container = $('div.onepas012017');
-    var popupHtml = "<b class='onepas012017' name='btnClose'>X</b> \
-	                    <h4>Thông tin khách hàng</h4> \
-	                    <form> \
-							<input class='onepas012017' name='txtPhone' value='' style='font-weight:bold;cursor:pointer;' readonly> \
-							<input class='onepas012017' name='txtName' value='' readonly> \
-							<textarea class='onepas012017' rows='5' name='txtLastBooking' value='' readonly></textarea> \
-							<textarea class='onepas012017' rows='5' name='txtGhiChu' placeholder='Comment'></textarea> \
-						</form> \
+    var $div = $('div.onepas012017');
+    var popupHtml = "<div class='onepas012017-popup' state='Down'> \
+	                    <div> \
+                    	    <b class='onepas012017' name='btnClose'>X</b> \
+							<textarea class='onepas012017' rows='1' style='height: 25px;' name='txtPhone' style='font-weight:bold;cursor:pointer;' readonly></textarea> \
+							<textarea class='onepas012017' rows='1' style='height: 25px;' name='txtName' readonly></textarea> \
+							<textarea class='onepas012017' rows='5' style='height: 80px;' name='txtLastBooking' readonly></textarea> \
+							<textarea class='onepas012017' rows='5' style='height: 80px;' name='txtGhiChu' placeholder='Comment'></textarea> \
+						</div> \
 						<div> \
 							<button id='btnSave' name='btnSave' class='onepas012017'>Cập nhật</button> \
-						</div>";
+						</div> \
+					</div>";
     var CALLERID_STATE_DATA = {'callerId':null, 'state':null, 'data':null, 'inboundChannelId':null};
+	var POPUP_LIST = [];//List of Popup, which are displaying on screen.
+	
     function reconnect(socket) {
         socket.connect();
     }
 	
-    //Thông tin số lần đặt chỗ gần nhất của người dùng.
-    function getLastBooking(phone) {
-        var lastBookingData = { 'info': null, 'state': null };
-        var totalBookingTimesData = { 'info': null, 'linkDetails': null };
-        var totalCancelingTimesData = { 'info': null };
-        var bookingData = { 'phone': null, 'name': null, 'lastBooking': lastBookingData, 'totalBookingTimes': totalBookingTimesData, 'totalCancelingTimes': totalCancelingTimesData };
-        if (phone.length > 0) {
-            httpGet("/OnepasReverse/GetDatChoGanNhatBySdt", { sdt: phone }).then(function (data) {
-                var strContent = "";
-                if (data.SoDienThoai) {
-                    var lengthReserve = data.lstDatCho.length;
-                    var strContent = "SĐT: " + data.SoDienThoai + "\nTên người dùng: " + data.TenNguoiDung + "\nTổng số lần đặt: " + data.TongSoDatCho + "\n";
-                    bookingData['phone'] = data.SoDienThoai;
-                    bookingData['name'] = data.TenNguoiDung;
-                    totalBookingTimesData["info"] = data.TongSoDatCho
-                    totalCancelingTimesData["info"] = data.TongSoHuy;
-                    bookingData['totalBookingTimes'] = totalBookingTimesData;
-                    if (lengthReserve == 0) {
-                        strContent = strContent + "";
-                    } else {
-                        if (lengthReserve > 0) {
-                            strContent = strContent + " Lần đặt gần nhất:" + "\n";
-                            var item = data.lstDatCho[1];
-                            strContent = strContent + "- " + item.ThoiGianDen + " | " + item.TenDoiTac;
-                            lastBookingData["info"] = item.ThoiGianDen + ", " + item.TenDoiTac;
-                            lastBookingData["state"] = getBookingState(item.TrangThai);
-                            bookingData['lastBooking'] = lastBookingData;
-                        }
-                    }
-                } else {
-                    strContent = "";
-                }
-				CALLERID_STATE_DATA['data'] = bookingData;
-                displayData();
-            });
-        } else {
-            //$("#txtLastBooking").val("");
-            CALLERID_STATE_DATA['data'] = bookingData;
-        }
-    }
-
-    function addLogCaller(callerId, sdt, batDau) {
+    function addLogCaller(callerId, sdt, batDau, ketThuc, ghiChu) {
         var formData = new FormData();
         formData.append("callerId", callerId);
         formData.append("sdt", sdt.replaceAll('.', ''));
@@ -82,10 +42,6 @@ $(document).ready(function () {
             contentType: false,
             processData: false,
             success: function (data) {
-                var callerId = CALLERID_STATE_DATA["inboundChannelId"];
-                var duration = CALLERID_STATE_DATA["duration"];
-                var ketThuc = duration['end'];
-                var ghiChu = $("textarea[class='onepas012017'][name='txtGhiChu']").val();
                 editLogCaller(callerId, ketThuc, ghiChu);
             },
             error: function (request, status, error) {
@@ -146,148 +102,136 @@ $(document).ready(function () {
         }
         return state;
     }
-
+	function fadeOutPopup($popup, $div){
+		var phoneNumber = $popup.find("textarea[name='txtPhone']").text();
+		var index = POPUP_LIST.indexOf(phoneNumber);
+		if (index != -1){
+			POPUP_LIST.splice(index, 1);
+			$div.children().eq(index).remove();
+		}
+	}
+	//This function layouts popups on screen
+	//style = 0; overlapped popups
+	//style = 1; mosaic popups
+	MAX_ZINDEX = 99999;
+	GAP_UNIT = 6;
+    function fadeInPopup(style, $popup, $div){
+		var phoneNumber = $popup.find("textarea[name='txtPhone']").text();
+		var index = POPUP_LIST.indexOf(phoneNumber);
+		$popup.css('zIndex', MAX_ZINDEX + index*GAP_UNIT);
+		$popup.attr('state', 'Ringing');
+		var top = $popup.css('top').replace(/\D/g,'');
+		$popup.css('top', parseInt(top) + index*GAP_UNIT*2);
+		var left = $popup.css('left').replace(/\D/g,'');
+		$popup.css('left', parseInt(left) + index*GAP_UNIT*2);
+		$popup.fadeIn();
+	}
     function displayData() {
         var newState = 'Down';
         var isMyExtenFound = false;
-        console.log(CALLERID_STATE_DATA);
+		var $popup;
+		
+		var index = POPUP_LIST.indexOf(CALLERID_STATE_DATA['callerId']);
+		if (index == -1){
+			var currentHtml = $div.html();
+		    $div.append(popupHtml);
+		    $popup = $div.children().last();
+			POPUP_LIST.push(CALLERID_STATE_DATA['callerId']);
+		}else{
+			$popup = $div.children().eq(index);
+		}
         for (var i = 0; i < CALLERID_STATE_DATA['state'].length; i++) {
             if (CALLERID_STATE_DATA['state'][i]['exten'] == myExten) {
                 newState = CALLERID_STATE_DATA['state'][i]['outboundChannelState'];
                 isMyExtenFound = true;
-                pingsWithoutState = 0;
             }
         }
-        console.log('myState: ' + myState + ' - newState: ' + newState);
-        if (myState == 'Down' && newState == 'Ringing') {
-            myState = 'Ringing';
-            $container.html(popupHtml);
-            $container.draggable();
-            $container.resizable();
-            $container.css('zIndex', 9999);
-            $("button[class='onepas012017'][name='btnSave']").attr('disabled', 'disabled');
+		console.log(CALLERID_STATE_DATA);
+        console.log('currentState: ' + $popup.attr('state') + ' - newState: ' + newState);
+        if ($popup.attr('state') == 'Down' && newState == 'Ringing') {
             var lastBookingData = CALLERID_STATE_DATA['data']['lastBooking'];
             var totalBookingTimesData = CALLERID_STATE_DATA['data']['totalBookingTimes'];
             var totalCancelingTimesData = CALLERID_STATE_DATA['data']['totalCancelingTimes'];
-            $("input[class='onepas012017'][name='txtPhone']").val(CALLERID_STATE_DATA['data']['phone']);
-            $("input[class='onepas012017'][name='txtName']").val(CALLERID_STATE_DATA['data']['name']);
-            $("textarea[class='onepas012017'][name='txtLastBooking']").text('Lần đặt gần nhất:\n' + 
-                                                                            lastBookingData['info'] + ' .' + lastBookingData['state'] + '\n' +
-                                                                            'Tổng số lần đặt:' +
-                                                                            totalBookingTimesData['info'] + '\n'
-                                                                            );
-            $("input[class='onepas012017'][name='txtPhone']").click(function (e) {
-                $("input[class='onepas012017'][name='txtPhone']").select();
+            $popup.draggable();
+            $popup.find("button[name='btnSave']").attr('disabled', 'disabled');
+            $popup.find("textarea[name='txtPhone']").text(CALLERID_STATE_DATA['callerId']);
+            $popup.find("textarea[name='txtName']").text(CALLERID_STATE_DATA['data']['name']);
+            $popup.find("textarea[name='txtLastBooking']").text('Lần đặt gần nhất:\n' + 
+                                                                 lastBookingData['info'] + ' .' + lastBookingData['state'] + '\n' +
+                                                                 'Tổng số lần đặt:' +
+                                                                 totalBookingTimesData['info'] + '\n'
+                                                                );
+            $popup.find("textarea[name='txtPhone']").click(function (e) {
+                $popup.find("textarea[name='txtPhone']").select();
                 document.execCommand('copy');
             });
-            $("b[class='onepas012017'][name='btnClose']").click(function (e) {
-                $container.fadeOut();
-                myState = 'Down';
+            $popup.find("b[name='btnClose']").click(function (e) {
+				fadeOutPopup($popup, $div);
                 e.preventDefault();
             });
-            $("button[class='onepas012017'][name='btnSave']").click(function (e) {
+            $popup.find("button[name='btnSave']").click(function (e) {
                 var callerId = CALLERID_STATE_DATA["inboundChannelId"];
                 var duration = CALLERID_STATE_DATA["duration"];
-                var sdt = $("input[class='onepas012017'][name='txtPhone']").val();
+                var sdt = $popup.find("textarea[name='txtPhone']").val();
                 var batDau = duration['start'];
                 var ketThuc = duration['end'];
-                var ghiChu = $("textarea[class='onepas012017'][name='txtGhiChu']").val();
-                addLogCaller(callerId, sdt, batDau);
-                $container.fadeOut();
-                myState = 'Down';
-                e.preventDefault();
+                var ghiChu = $popup.find("textarea[name='txtGhiChu']").val();
+                addLogCaller(callerId, sdt, batDau, ketThuc, ghiChu);
+				fadeOutPopup($popup, $div);
             });
-            $container.fadeToggle();//Popup triggering point
-            $('button.onepas012017').click(function () {
-                $container.fadeOut();
-                myState = 'Down';
-            });
-            $(document).mouseup(function (e) {
-                if (!$container.is(e.target) // if the target of the click isn't the container...
-                    && $container.has(e.target).length === 0) // ... nor a descendant of the container
-                {
-                    //container.fadeOut();
-                }
-            });
+			fadeInPopup(0, $popup, $div);//Popup displaying point
         }
-        if (myState == 'Ringing' && newState == 'Up') {
-            myState = 'Up';
+        if ($popup.attr('state') == 'Ringing' && newState == 'Up') {
+			$popup.attr('state', 'Up');
         }
-        if (isMyExtenFound == false) {
+        if (isMyExtenFound == false) {//TODO: why this code block
             if (CALLERID_STATE_DATA['state'].length != 0) {
-                $container.fadeOut();
-                myState = 'Down';
+				fadeOutPopup($popup, $div);
             } else {
-                $("button[class='onepas012017'][name='btnSave']").removeAttr('disabled');
+                $popup.find("button[name='btnSave']").removeAttr('disabled');
             }
         }
     }
+	//Thông tin số lần đặt chỗ gần nhất của người dùng.
+    function getLastBooking(phone) {
+        var lastBookingData = { 'info': null, 'state': null };
+        var totalBookingTimesData = { 'info': null, 'linkDetails': null };
+        var totalCancelingTimesData = { 'info': null };
+        var bookingData = { 'phone': null, 'name': null, 'lastBooking': lastBookingData, 'totalBookingTimes': totalBookingTimesData, 'totalCancelingTimes': totalCancelingTimesData };
+		httpGet("/OnepasReverse/GetDatChoGanNhatBySdt", { sdt: phone }).then(function (data) {
+			var strContent = "";
+			if (data.SoDienThoai) {
+				var lengthReserve = data.lstDatCho.length;
+				var strContent = "SĐT: " + data.SoDienThoai + "\nTên người dùng: " + data.TenNguoiDung + "\nTổng số lần đặt: " + data.TongSoDatCho + "\n";
+				bookingData['phone'] = data.SoDienThoai;
+				bookingData['name'] = data.TenNguoiDung;
+				totalBookingTimesData["info"] = data.TongSoDatCho
+				totalCancelingTimesData["info"] = data.TongSoHuy;
+				bookingData['totalBookingTimes'] = totalBookingTimesData;
+				if (lengthReserve == 0) {
+					strContent = strContent + "";
+				} else {
+					if (lengthReserve > 0) {
+						strContent = strContent + " Lần đặt gần nhất:" + "\n";
+						var item = data.lstDatCho[1];
+						strContent = strContent + "- " + item.ThoiGianDen + " | " + item.TenDoiTac;
+						lastBookingData["info"] = item.ThoiGianDen + ", " + item.TenDoiTac;
+						lastBookingData["state"] = getBookingState(item.TrangThai);
+						bookingData['lastBooking'] = lastBookingData;
+					}
+				}
+			} else {
+				strContent = "";
+			}
+			CALLERID_STATE_DATA['data'] = bookingData;
+			displayData();
+		});
+    }
 	function collectData() {
-        var returnValue = 0;
         if (CALLERID_STATE_DATA['callerId'].length > 0) {
-            var profits = CALLERID_STATE_DATA['callerId'];
-            profits = profits.replaceAll('.', '');
-            profits = profits.replace('+84', '0');
-            var isNotNumber = isNaN(profits);
-            if (!isNotNumber) {
-                if (profits.length > 2) {
-                    var beginNumber = profits.substring(0, 2);
-                    if (beginNumber == "01") {
-
-                        if (profits.length == 11) {//Lấy thông tin đặt chỗ gần nhất.
-
-                            getLastBooking(profits);
-
-                        } else if (profits.length > 11) {
-
-                            profits = profits.substring(0, profits.length - 1);
-                            showAlert("Số điện thoại không thể nhiều hơn 11 số.");
-                            returnValue = 1;
-                        } else {
-                            getLastBooking("");
-                            returnValue = 2;
-                        }
-
-                    } else if (beginNumber == "08" || beginNumber == "09") {
-
-                        if (profits.length == 10) {//Lấy thông tin đặt chỗ gần nhất
-
-                            getLastBooking(profits);
-
-                        } else if (profits.length > 10) {
-
-                            profits = profits.substring(0, profits.length - 1);
-                            showAlert("Số điện thoại không thể nhiều hơn 10 số.");
-                            returnValue = 1;
-                        } else {
-                            getLastBooking("");
-                            returnValue = 2;
-                        }
-                    } else {// trường hợp là các sdt máy bàn
-                        if (profits.length >= 8 && profits.length <= 11) {//Lấy thông tin đặt chỗ gần nhất
-                            getLastBooking(profits);
-                        } else {
-                            if (profits.length > 11) {
-                                profits = profits.substring(0, profits.length - 1);
-                                showAlert("Số điện thoại của bạn không đúng định dạng");
-                                returnValue = 1;
-                            } else {
-                                getLastBooking("");
-                                returnValue = 2;
-                            }
-                        }
-
-                    }
-                } else {
-                    getLastBooking("");
-                }
-            }
-            else {
-                getLastBooking("");
-                showAlert("Số điện thoại của bạn không đúng.");
-                returnValue = 1;
-            }
-            return returnValue;
+            var phoneNumber = CALLERID_STATE_DATA['callerId'];
+            phoneNumber = phoneNumber.replace(/\D/g,'');
+            getLastBooking(phoneNumber);
         }
     }
     socketIo203.on('connect', function (data) {
@@ -304,9 +248,8 @@ $(document).ready(function () {
         //console.log('send PONG');
     });
     socketIo203.on('CALLERID_STATE_DATA', function (data) {
-        console.log(data['state']);
         CALLERID_STATE_DATA['callerId'] = data['callerId'];
-        CALLERID_STATE_DATA['callerId'] = '84977225615';
+        //CALLERID_STATE_DATA['callerId'] = '84977225615';
         CALLERID_STATE_DATA['state'] = data['state'];
         CALLERID_STATE_DATA['data'] = data['data'];
         CALLERID_STATE_DATA['inboundChannelId'] = data['inboundChannelId'];
