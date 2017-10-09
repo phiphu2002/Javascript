@@ -1,29 +1,30 @@
-﻿div.onepas012017 { 
+﻿div.onepas012017-popup { 
   display: none;
-  border: 6px solid salmon; 
-  padding: 2em;
-  width: 400px;
+  border: 2px solid red; 
+  padding: 1em;
+  width: 300px;
   text-align: center;
   background: #fff;
   position: fixed;
-  top:50%;
-  left:50%;
+  top:180px;
+  left:150px;
   transform: translate(-50%,-50%);
   -webkit-transform: translate(-50%,-50%)
   
 }
 
-input.onepas012017, textarea.onepas012017 { 
+textarea.onepas012017 { 
   margin: .8em auto;
   font-family: inherit; 
   text-transform: inherit; 
   font-size: inherit;
   display: block; 
-  width: 320px; 
-  padding: .4em;
+  width: 240px; 
+  padding: .1em;
+  resize: none;
 }
 
-textarea.onepas012017 { height: 80px; resize: none; }
+;textarea.onepas012017 { height: 80px; resize: none; }
 
 button.onepas012017 { 
   width: 140px;
