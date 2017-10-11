@@ -31,3 +31,6 @@ You can put "FITi_Asterisk_Adapter_watcher" in /etc/rc.local
 
 6.2) deploying CRM Adapter module
 Refer to "AsteriskCtiDemo.html"
+
+7) if you need supports, contact me at phiphu@FITi.vn
+-------------------------
